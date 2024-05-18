@@ -74,7 +74,7 @@ def resume_pdf_setup(uploaded_file):
             full_text += text
         # st.write(full_text)
         return full_text
-        doc.close() 
+        # doc.close() 
         
 
 def validate_api_key(api_key, model):
@@ -132,29 +132,19 @@ def validate_api_key(api_key, model):
         
 
 def reset_chat():
-    # st.session_state.chat_history = []
-    st.session_state.messages = []
-
+    for k in st.session_state.keys():
+        if type(k) is str:
+            st.session_state.k = ""
+        elif type(k) is list:
+            st.session_state.k = []
+    
 
 
 st.title("Resume Assistant ChatBot")
 
 if st.button("Reset Chat"):
-    # reset_chat()
-    # st.experimental_rerun()
-    jd_text = ""
-    jd_text = st.text_area("Paste job description text:",
-                            max_chars=5500,
-                            height=200,
-                            placeholder="Paste job description text here...",
-                            label_visibility="collapsed",
-                            key="jd_text")
-    
-if st.button("Modify Text Area"):
-    new_content = st.text_input("Enter new content:")
-    if new_content:
-        modify_text_area(new_content)
-        st.experimental_rerun()
+    reset_chat()
+    st.experimental_rerun()
         
 
 model = st.selectbox("Select a model: ", ("GPT-4", "Gemini-pro"))
@@ -177,38 +167,6 @@ if model == "GPT-4":
     # *******************************************************************************
     # GET JOB DESCRIPTION
     # *******************************************************************************
-    # # get job description either as text or URL
-    # col_text, col_url, _, _ = st.columns(4)
-    # with col_text:
-    #     st.write("Job Description Text")
-    # with col_url:
-    #     is_url_button = st.toggle('Job URL', False)
-
-    # reset_chat = False #flag is set true if relevant information has changed and older chat is no longer valid
-
-    # if "job_description" not in st.session_state:
-    #     st.session_state.job_description = ""
-    # jd_url, jd_text = "", ""
-    # if is_url_button:
-    #     jd_url = st.text_input("Enter job posting URL:",
-    #                            placeholder="Enter job posting URL here...",
-    #                            label_visibility="collapsed")
-    # else:
-    #     jd_text = st.text_area("Paste job description text:",
-    #                            max_chars=5500,
-    #                            height=200,
-    #                            placeholder="Paste job description text here...",
-    #                            label_visibility="collapsed")
-
-    # if jd_url:
-    #     # TODO
-    #     # jd_text = get_jd_text(jd_url)
-    #     pass
-
-    # if jd_text:
-    #     if st.session_state.job_description and st.session_state.job_description != jd_text:
-    #         reset_chat = True
-    #     st.session_state.job_description = jd_text
 
     # get job description either as text or URL
     col_text, _, _, _ = st.columns(4)
@@ -281,6 +239,7 @@ if model == "GPT-4":
 
     # initialize chat history
     if "messages" not in st.session_state or reset_chat == True:
+    # if 'messages' not in st.session_state:
         st.session_state.messages = []
 
     if not st.session_state.messages:
@@ -336,90 +295,99 @@ if model == "Gemini-pro":
         with col_jd:
             st.write("Job Description Text")
         
-        file = st.file_uploader("Upload your resume in PDF format" , type=["pdf"])
-        
         text = ""
         text = st.text_area("Paste job description text:",
                                max_chars=5500,
                                height=200,
                                placeholder="Paste job description text here...",
                                label_visibility="collapsed")
+        # print(text)
         
-        # col_1, _, _ = st.columns(3)
-        # with col_1:
-        #     get_resume_button = st.button("Submit", key="get_resume", type="primary", use_container_width=True)
+        if 'job_description' not in st.session_state:
+            st.session_state.job_description = ""
             
-        # if get_resume_button:
-        if file is None:
-            st.toast(":red[Upload user's resume or work related data to get started]", icon="⚠️")
-            # st.stop()
-            
-        if text.strip(" ") is None:
+        if text:
+            st.session_state.job_description = text
+        
+        else:
             st.toast(":red[Upload job description data to get started]", icon="⚠️")
-            # st.stop()
-                
-        if file is not None and text is not None:
+        
+        if "candidate_resume" not in st.session_state:
+            st.session_state.candidate_resume = ""
+        st.write("Upload your resume or any work related notes")
+    
+        file = st.file_uploader("Upload your resume in PDF format" , type=["pdf"])
+        
+        if file:
+            st.session_state.candidate_resume = resume_pdf_setup(file)
+            
+        else:
+            st.toast(":red[Upload user's resume or work related data to get started]", icon="⚠️")
+            
             
             # st.write("Chat with Gemini")
             
-            if 'messages' not in st.session_state: 
-                st.session_state.messages = []
-            if 'gemini_history' not in st.session_state:
-                st.session_state.gemini_history = []
-            
-            
-            st.session_state.model = genai.GenerativeModel('gemini-pro')
-            st.session_state.chat = st.session_state.model.start_chat(history=st.session_state.gemini_history,)
-            
-            if st.session_state.messages is not None:
-                for message in st.session_state.messages:
-                    with st.chat_message(
-                            name=message['role'],
-                            avatar=message.get('avatar'),
-                    ):
-                        st.markdown(message['content'])
-                    
-                    
-            if user_prompt := st.chat_input("Your question here: "):
-                with st.chat_message('user'):
-                    st.markdown(user_prompt)
-                st.session_state.messages.append(
-                    dict(
-                        role='user',
-                        content=user_prompt,
-                        )
-                    )
-                
-                prompt = get_prompt_text(user_prompt, job_description=text, resume=resume_pdf_setup(file))
-                
-                response = st.session_state.chat.send_message(
-                    prompt,
-                    stream=True,
-                    )
-                
+        if 'gemini_messages' not in st.session_state: 
+            st.session_state.gemini_messages = []
+        if 'gemini_history' not in st.session_state:
+            st.session_state.gemini_history = []
+        
+        
+        st.session_state.model = genai.GenerativeModel('gemini-pro')
+        st.session_state.chat = st.session_state.model.start_chat(history=st.session_state.gemini_history,)
+        
+        if st.session_state.gemini_messages is not None:
+            for message in st.session_state.gemini_messages:
                 with st.chat_message(
-                        name=MODEL_ROLE,
-                        avatar=AI_AVATAR_ICON,
+                        name=message['role'],
+                        avatar=message.get('avatar'),
                 ):
-                    message_placeholder = st.empty()
-                    full_response = ""
-                    assistant_response = response
-                    for chunk in response:
-                        for word in chunk.text.split(" "):
-                            full_response += word + " "
-                            time.sleep(0.05)
-                            message_placeholder.write(full_response + '▌')
-                    message_placeholder.write(full_response)
-                    
-                # print(st.session_state.chat.history)
-                st.session_state.messages.append(
-                    dict(
-                        role=MODEL_ROLE,
-                        content=st.session_state.chat.history[-1].parts[0].text,
-                        avatar=AI_AVATAR_ICON,
-                        )
+                    st.markdown(message['content'])
+                
+                
+        if user_prompt := st.chat_input("Your question here: "):
+            with st.chat_message('user'):
+                st.markdown(user_prompt)
+            st.session_state.gemini_messages.append(
+                dict(
+                    role='user',
+                    content=user_prompt,
                     )
-                st.session_state.gemini_history = st.session_state.chat.history
+                )
+            
+            # prompt = get_prompt_text(user_prompt, job_description=text, resume=resume_pdf_setup(file))
+            prompt = get_prompt_text(user_prompt, job_description=text, resume=st.session_state.candidate_resume)
+            
+            response = st.session_state.chat.send_message(
+                prompt,
+                stream=True,
+                )
+            
+            with st.chat_message(
+                    name=MODEL_ROLE,
+                    avatar=AI_AVATAR_ICON,
+            ):
+                message_placeholder = st.empty()
+                full_response = ""
+                assistant_response = response
+                for chunk in response:
+                    for word in chunk.text.split(" "):
+                        full_response += word + " "
+                        time.sleep(0.05)
+                        message_placeholder.write(full_response + '▌')
+                message_placeholder.write(full_response)
+                
+            # print(st.session_state.chat.history)
+            st.session_state.gemini_messages.append(
+                dict(
+                    role=MODEL_ROLE,
+                    content=st.session_state.chat.history[-1].parts[0].text,
+                    avatar=AI_AVATAR_ICON,
+                    )
+                )
+            st.session_state.gemini_history = st.session_state.chat.history
+            # for k in st.session_state.keys():
+            #     print(k)
         
     except Exception as e:
         st.error(f"An error occurred: {e}")
