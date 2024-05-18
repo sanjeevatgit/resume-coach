@@ -7,6 +7,7 @@ import time
 import requests
 
 
+
 # uploaded file operations : save it, extract text
 def save_file(file):
     """
@@ -107,7 +108,6 @@ def validate_api_key(api_key, model):
             return False
     
     elif model == "Gemini-pro":
-        # validation_endpoint = "https://api.example.com/v1/gemini-pro/validate"
         validation_endpoint = "https://cloud.google.com/vertex-ai/docs/generative-ai/model-reference/gemini"
     
         headers = {
@@ -132,19 +132,38 @@ def validate_api_key(api_key, model):
         
 
 def reset_chat():
-    for k in st.session_state.keys():
-        if type(k) is str:
-            st.session_state.k = ""
-        elif type(k) is list:
-            st.session_state.k = []
+    # for key in st.session_state.keys():
+    #     # if key != "jd_text" or key != "text" or key != "file":
+    #         print(key)
+    #         del st.session_state[key]
+    
+        # print("session variable content after deletion")
+        # print(st.session_state)
+    st.session_state["job_description"] = ""
+    st.session_state["candidate_resume"] = ""
+    if "jd_text" in st.session_state:
+        st.session_state["jd_text"] = ""
+    if "text" in st.session_state:
+        st.session_state["text"] = ""
+    if "file" in st.session_state:
+        st.session_state["file"] = None
+    if 'messages' in st.session_state:
+        st.session_state.messages = []
+    if 'gemini_messages' in st.session_state:
+        st.session_state.gemini_messages = []
+    if 'gemini_history' in st.session_state:
+        st.session_state.gemini_history = []
     
 
 
 st.title("Resume Assistant ChatBot")
 
-if st.button("Reset Chat"):
+reset = st.button("Reset Chat")
+if reset:
     reset_chat()
+    # st.session_state["jd_text"] = ""
     st.experimental_rerun()
+    
         
 
 model = st.selectbox("Select a model: ", ("GPT-4", "Gemini-pro"))
@@ -152,7 +171,8 @@ model = st.selectbox("Select a model: ", ("GPT-4", "Gemini-pro"))
 if model == "GPT-4":
     OPENAI_API_KEY = st.text_input("Enter your API key for OpenAI's GPT-4 model: ", type="password")
     
-    if st.button("Use GPT-4"):
+    useGPT = st.button("Use GPT-4")
+    if useGPT:
         if OPENAI_API_KEY:
             if validate_api_key(OPENAI_API_KEY, model):
                 st.success('API key for GPT-4 is valid!')
@@ -180,23 +200,21 @@ if model == "GPT-4":
     
     jd_text = ""
     if col_text:
-        jd_text = st.text_area("Paste job description text:",
+        placeholder = st.empty()
+        jd_text = placeholder.text_area("Paste job description text:",
                                 max_chars=5500,
                                 height=200,
                                 placeholder="Paste job description text here...",
                                 label_visibility="collapsed",
                                 key = 'jd_text')
-    
-    # if jd_text.strip(" ") is None:
-    #     st.toast(":red[Upload job description data to get started]", icon="⚠️")
-        # st.stop()
-    # print(jd_text)
+        
+   
     if jd_text:
         if st.session_state.job_description and st.session_state.job_description != jd_text:
             reset_chat = True
         st.session_state.job_description = jd_text
     
-    else:
+    elif not jd_text and useGPT:
         st.toast(":red[Upload job description data to get started]", icon="⚠️")
             
     # *******************************************************************************
@@ -207,7 +225,10 @@ if model == "GPT-4":
         st.session_state.candidate_resume = ""
     st.write("Upload your resume or any work related notes")
     file = st.file_uploader("Upload your resume or any work related notes",
-                            label_visibility='collapsed', type=["json", "pdf", "text"])
+                            label_visibility='collapsed', type=["json", "pdf", "text"],
+                            key="resume")
+    print(file)
+    st.session_state.file = file
     
     # Check and save the contents of the file
     if file:
@@ -217,7 +238,7 @@ if model == "GPT-4":
             reset_chat = True
         st.session_state.candidate_resume = get_text(saved_file_name)
         
-    else:
+    elif not file and useGPT:
         st.toast(":red[Upload user's resume or work related data to get started]", icon="⚠️")
         # st.stop()
     # print(st.session_state.job_description, st.session_state.candidate_resume)
@@ -242,7 +263,7 @@ if model == "GPT-4":
     # if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-    if not st.session_state.messages:
+    if st.session_state.messages == []:
         st.session_state.messages.append({"role": "user", "content": prompt})
     else:
         st.session_state.messages[0] = {"role": "user", "content": prompt}
@@ -278,12 +299,13 @@ if model == "Gemini-pro":
     GOOGLE_API_KEY = st.text_input("Enter your API key for Google's Gemini-pro model: ", type="password")
     genai.configure(api_key=GOOGLE_API_KEY)
     
-    if st.button("Use Gemini-pro"):
+    useGemini = st.button("Use Gemini-pro")
+    if useGemini:
         if GOOGLE_API_KEY:
             if validate_api_key(GOOGLE_API_KEY, model):
-                st.success('API key for GPT-4 is valid!')
+                st.success('API key for Gemini-pro is valid!')
             else:
-                st.error('API key for GPT-4 is invalid.')
+                st.error('API key for Gemini-pro is invalid.')
                 st.stop()
                 
     MODEL_ROLE = 'ai'
@@ -300,7 +322,8 @@ if model == "Gemini-pro":
                                max_chars=5500,
                                height=200,
                                placeholder="Paste job description text here...",
-                               label_visibility="collapsed")
+                               label_visibility="collapsed",
+                               key = "text")
         # print(text)
         
         if 'job_description' not in st.session_state:
@@ -309,19 +332,19 @@ if model == "Gemini-pro":
         if text:
             st.session_state.job_description = text
         
-        else:
+        elif not text and useGemini:
             st.toast(":red[Upload job description data to get started]", icon="⚠️")
         
         if "candidate_resume" not in st.session_state:
             st.session_state.candidate_resume = ""
         st.write("Upload your resume or any work related notes")
     
-        file = st.file_uploader("Upload your resume in PDF format" , type=["pdf"])
+        file = st.file_uploader("Upload your resume in PDF format" , type=["pdf"], key="gResume")
         
         if file:
             st.session_state.candidate_resume = resume_pdf_setup(file)
             
-        else:
+        elif not file and useGemini:
             st.toast(":red[Upload user's resume or work related data to get started]", icon="⚠️")
             
             
